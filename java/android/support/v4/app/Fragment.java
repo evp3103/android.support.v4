@@ -16,6 +16,9 @@
 
 package android.support.v4.app;
 
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
+
 import android.app.Activity;
 import android.content.ComponentCallbacks;
 import android.content.Context;
@@ -25,25 +28,23 @@ import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.v4.util.SimpleArrayMap;
 import android.support.v4.util.DebugUtils;
+import android.support.v4.util.SimpleArrayMap;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.ContextMenu;
+import android.view.ContextMenu.ContextMenuInfo;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.ContextMenu.ContextMenuInfo;
 import android.view.View.OnCreateContextMenuListener;
-import android.view.animation.Animation;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
 
-import java.io.FileDescriptor;
-import java.io.PrintWriter;
+import com.nineoldandroids.animation.Animator;
 
 final class FragmentState implements Parcelable {
     final String mClassName;
@@ -176,7 +177,7 @@ public class Fragment implements ComponentCallbacks, OnCreateContextMenuListener
     // Non-null if the fragment's view hierarchy is currently animating away,
     // meaning we need to wait a bit on completely destroying it.  This is the
     // view that is animating.
-    View mAnimatingAway;
+    Animator mAnimatingAway;
 
     // If mAnimatingAway != null, this is the state we should move to once the
     // animation is done.
@@ -972,7 +973,7 @@ public class Fragment implements ComponentCallbacks, OnCreateContextMenuListener
     /**
      * Called when a fragment loads an animation.
      */
-    public Animation onCreateAnimation(int transit, boolean enter, int nextAnim) {
+    public Animator onCreateAnimator(int transit, boolean enter, int nextAnim) {
         return null;
     }
     

@@ -16,8 +16,15 @@
 
 package android.support.v4.app;
 
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import android.content.Context;
 import android.content.res.Configuration;
+import android.content.res.TypedArray;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -27,26 +34,21 @@ import android.support.v4.util.DebugUtils;
 import android.support.v4.util.LogWriter;
 import android.util.Log;
 import android.util.SparseArray;
-import android.view.animation.AccelerateInterpolator;
-import android.view.animation.AlphaAnimation;
-import android.view.animation.Animation;
-import android.view.animation.AnimationSet;
-import android.view.animation.AnimationUtils;
-import android.view.animation.DecelerateInterpolator;
-import android.view.animation.Interpolator;
-import android.view.animation.ScaleAnimation;
-import android.view.animation.Animation.AnimationListener;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.Interpolator;
 
-import java.io.FileDescriptor;
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import com.github.evp3103.android.support.v4.R;
+import com.nineoldandroids.animation.Animator;
+import com.nineoldandroids.animation.AnimatorInflater;
+import com.nineoldandroids.animation.AnimatorListenerAdapter;
+import com.nineoldandroids.animation.AnimatorSet;
+import com.nineoldandroids.animation.ObjectAnimator;
 
 /**
  * Static library support version of the framework's {@link android.app.FragmentManager}.
@@ -731,38 +733,40 @@ final class FragmentManagerImpl extends FragmentManager {
     
     static final int ANIM_DUR = 220;
     
-    static Animation makeOpenCloseAnimation(Context context, float startScale,
-            float endScale, float startAlpha, float endAlpha) {
-        AnimationSet set = new AnimationSet(false);
-        ScaleAnimation scale = new ScaleAnimation(startScale, endScale, startScale, endScale,
-                Animation.RELATIVE_TO_SELF, .5f, Animation.RELATIVE_TO_SELF, .5f);
-        scale.setInterpolator(DECELERATE_QUINT);
-        scale.setDuration(ANIM_DUR);
-        set.addAnimation(scale);
-        AlphaAnimation alpha = new AlphaAnimation(startAlpha, endAlpha);
+    static Animator makeOpenCloseAnimation(Context context, float startScale,
+            float endScale, float startAlpha, float endAlpha) {        
+        Animator scaleX = ObjectAnimator.ofFloat(null, "scaleX", startScale, endScale);
+        scaleX.setInterpolator(DECELERATE_QUINT);
+        
+        Animator scaleY = ObjectAnimator.ofFloat(null, "scaleY", startScale, endScale);
+        scaleY.setInterpolator(DECELERATE_QUINT);
+        
+        Animator alpha = ObjectAnimator.ofFloat(null, "alpha", startAlpha, endAlpha);
         alpha.setInterpolator(DECELERATE_CUBIC);
-        alpha.setDuration(ANIM_DUR);
-        set.addAnimation(alpha);
+        
+        AnimatorSet set = new AnimatorSet();
+        set.play(scaleX).with(scaleY).with(alpha);
+        set.setDuration(ANIM_DUR);
         return set;
     }
     
-    static Animation makeFadeAnimation(Context context, float start, float end) {
-        AlphaAnimation anim = new AlphaAnimation(start, end);
+    static Animator makeFadeAnimation(Context context, float start, float end) {
+        Animator anim = ObjectAnimator.ofFloat(null, "alpha", start, end);
         anim.setInterpolator(DECELERATE_CUBIC);
         anim.setDuration(ANIM_DUR);
         return anim;
     }
     
-    Animation loadAnimation(Fragment fragment, int transit, boolean enter,
+    Animator loadAnimator(Fragment fragment, int transit, boolean enter,
             int transitionStyle) {
-        Animation animObj = fragment.onCreateAnimation(transit, enter,
+        Animator animObj = fragment.onCreateAnimator(transit, enter,
                 fragment.mNextAnim);
         if (animObj != null) {
             return animObj;
         }
         
         if (fragment.mNextAnim != 0) {
-            Animation anim = AnimationUtils.loadAnimation(mActivity, fragment.mNextAnim);
+            Animator anim = AnimatorInflater.loadAnimator(mActivity, fragment.mNextAnim);
             if (anim != null) {
                 return anim;
             }
@@ -799,17 +803,16 @@ final class FragmentManagerImpl extends FragmentManager {
             return null;
         }
         
-        //TypedArray attrs = mActivity.obtainStyledAttributes(transitionStyle,
-        //        com.android.internal.R.styleable.FragmentAnimation);
-        //int anim = attrs.getResourceId(styleIndex, 0);
-        //attrs.recycle();
+        TypedArray attrs = mActivity.obtainStyledAttributes(transitionStyle,
+                R.styleable.FragmentAnimation);
+        int anim = attrs.getResourceId(styleIndex, 0);
+        attrs.recycle();
         
-        //if (anim == 0) {
-        //    return null;
-        //}
+        if (anim == 0) {
+            return null;
+        }
         
-        //return AnimatorInflater.loadAnimator(mActivity, anim);
-        return null;
+        return AnimatorInflater.loadAnimator(mActivity, anim);
     }
     
     public void performPendingDeferredStart(Fragment f) {
@@ -930,10 +933,11 @@ final class FragmentManagerImpl extends FragmentManager {
                                 f.mInnerView = f.mView;
                                 f.mView = NoSaveStateFrameLayout.wrap(f.mView);
                                 if (container != null) {
-                                    Animation anim = loadAnimation(f, transit, true,
+                                    Animator anim = loadAnimator(f, transit, true,
                                             transitionStyle);
                                     if (anim != null) {
-                                        f.mView.startAnimation(anim);
+                                        anim.setTarget(f.mView);
+                                        anim.start();
                                     }
                                     container.addView(f.mView);
                                 }
@@ -995,34 +999,33 @@ final class FragmentManagerImpl extends FragmentManager {
                         }
                         f.performDestroyView();
                         if (f.mView != null && f.mContainer != null) {
-                            Animation anim = null;
+                            Animator anim = null;
                             if (mCurState > Fragment.INITIALIZING && !mDestroyed) {
-                                anim = loadAnimation(f, transit, false,
+                                anim = loadAnimator(f, transit, false,
                                         transitionStyle);
                             }
                             if (anim != null) {
+                                final ViewGroup container = f.mContainer;
+                                final View view = f.mView;
                                 final Fragment fragment = f;
-                                f.mAnimatingAway = f.mView;
+                                f.mAnimatingAway = anim;
                                 f.mStateAfterAnimating = newState;
-                                anim.setAnimationListener(new AnimationListener() {
+                                anim.addListener(new AnimatorListenerAdapter() {
                                     @Override
-                                    public void onAnimationEnd(Animation animation) {
+                                    public void onAnimationEnd(Animator anim) {
+                                        container.removeView(view);
                                         if (fragment.mAnimatingAway != null) {
                                             fragment.mAnimatingAway = null;
                                             moveToState(fragment, fragment.mStateAfterAnimating,
                                                     0, 0, false);
                                         }
                                     }
-                                    @Override
-                                    public void onAnimationRepeat(Animation animation) {
-                                    }
-                                    @Override
-                                    public void onAnimationStart(Animation animation) {
-                                    }
                                 });
-                                f.mView.startAnimation(anim);
+                                anim.setTarget(f.mView);
+                                anim.start();
+                            } else {
+                                f.mContainer.removeView(f.mView);
                             }
-                            f.mContainer.removeView(f.mView);
                         }
                         f.mContainer = null;
                         f.mView = null;
@@ -1038,9 +1041,9 @@ final class FragmentManagerImpl extends FragmentManager {
                                 // animation right now -- it is not needed,
                                 // and we can't wait any more on destroying
                                 // the fragment.
-                                View v = f.mAnimatingAway;
+                                Animator anim = f.mAnimatingAway;
                                 f.mAnimatingAway = null;
-                                v.clearAnimation();
+                                anim.cancel();
                             }
                         }
                         if (f.mAnimatingAway != null) {
@@ -1208,12 +1211,25 @@ final class FragmentManagerImpl extends FragmentManager {
         if (!fragment.mHidden) {
             fragment.mHidden = true;
             if (fragment.mView != null) {
-                Animation anim = loadAnimation(fragment, transition, false,
+                Animator anim = loadAnimator(fragment, transition, false,
                         transitionStyle);
                 if (anim != null) {
-                    fragment.mView.startAnimation(anim);
+                    anim.setTarget(fragment.mView);
+                    // Delay the actual hide operation until the animation finishes, otherwise
+                    // the fragment will just immediately disappear
+                    final Fragment finalFragment = fragment;
+                    anim.addListener(new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationEnd(Animator animation) {
+                            if (finalFragment.mView != null) {
+                                finalFragment.mView.setVisibility(View.GONE);
+                            }
+                        }
+                    });
+                    anim.start();
+                } else {
+                    fragment.mView.setVisibility(View.GONE);
                 }
-                fragment.mView.setVisibility(View.GONE);
             }
             if (fragment.mAdded && fragment.mHasMenu && fragment.mMenuVisible) {
                 mNeedMenuInvalidate = true;
@@ -1227,10 +1243,11 @@ final class FragmentManagerImpl extends FragmentManager {
         if (fragment.mHidden) {
             fragment.mHidden = false;
             if (fragment.mView != null) {
-                Animation anim = loadAnimation(fragment, transition, true,
+                Animator anim = loadAnimator(fragment, transition, true,
                         transitionStyle);
                 if (anim != null) {
-                    fragment.mView.startAnimation(anim);
+                    anim.setTarget(fragment.mView);
+                    anim.start();
                 }
                 fragment.mView.setVisibility(View.VISIBLE);
             }

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base style for animations.  This style specifies no animations. -->
+    <style name="Animation" />
+
+    <!-- Standard animations for a full-screen window or activity. -->
+    <style name="Animation.Activity">
+        <item name="fragmentOpenEnterAnimation">@animator/fragment_open_enter</item>
+        <item name="fragmentOpenExitAnimation">@animator/fragment_open_exit</item>
+        <item name="fragmentCloseEnterAnimation">@animator/fragment_close_enter</item>
+        <item name="fragmentCloseExitAnimation">@animator/fragment_close_exit</item>
+        <item name="fragmentFadeEnterAnimation">@animator/fragment_fade_enter</item>
+        <item name="fragmentFadeExitAnimation">@animator/fragment_fade_exit</item>
+    </style>
+
+</resources>
